@@ -1,0 +1,222 @@
+/*
+ * bgp_graceful_shutdown.slax
+
+ */
+
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+param $action = "status";
+param $community = "origin:65535:0";
+
+var $self = "bgp_graceful_shutdown.slax";
+var $edbi = "bgp_graceful_shutdown";
+
+var $logprefix = $self _ ": ";
+
+var $arguments = {
+    <argument> {
+        <name> "action";
+        <description> "Action enable|disable|status";
+    }
+    <argument> {
+        <name> "community";
+        <description> "community member (e.g. origin:65535:0)";
+    }
+}
+
+var $con = jcs:open();
+
+match / {
+
+    <op-script-results> {
+        expr jcs:syslog("user.notice", $logprefix, "BGP graceful shutdown action " _ $action);
+
+        if (not($con)) {
+            <xsl:message terminate="yes"> "Not able to connect to local mgd";
+        }
+
+        var $rpc-open-edbi = {
+            <open-configuration> {
+                <ephemeral-instance> $edbi;
+            }
+        }
+        var $result = jcs:execute($con, $rpc-open-edbi);
+
+        var $edbcheck = call check_edb_config();
+        var $active_community = call is_bgp_graceful_shutdown_active();
+
+        if ($action == "status") {
+            if ($active_community == "0") {
+                expr jcs:output("BGP graceful shutdown not active");
+            } else {
+                expr jcs:output("BGP graceful shutdown active (" _ $active_community _ ")");
+            }
+
+        } else if ($action == "enable") {
+            call enable_bgp_graceful_shutdown();
+            expr jcs:output("BGP graceful shutdown enabled (" _ $community _ ")");
+            expr jcs:syslog("user.notice", $logprefix, "BGP graceful shutdown enabled (" _ $community _ ")");
+        } else if ($action == "disable") {
+            if ($active_community == "0") {
+                expr jcs:output("BGP graceful shutdown not active");
+            } else {
+                call disable_bgp_graceful_shutdown();
+                expr jcs:output("BGP graceful shutdown disabled");
+                expr jcs:syslog("user.notice", $logprefix, "BGP graceful shutdown disabled");
+            }
+        } else {
+            expr jcs:output("unknown action " _ $action _ ", ignored");
+        }
+
+        var $rpc-close-edbi = {
+            <close-configuration> {
+            }
+        }
+        var $result-close = jcs:execute($con, $rpc-close-edbi);
+        var $close = jcs:close($con);
+    }
+}
+
+
+template check_edb_config() {
+
+    var $rpc-query = {
+        <get-configuration database="committed"> {
+            attribute "inherit" {
+                expr "inherit";
+            }
+            <configuration> {
+                <system> {
+                    <configuration-database> {
+                        <ephemeral> {
+                            <instance> {
+                                <name> $edbi;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    var $result = jcs:execute($con, $rpc-query);
+    if (not($result//instance[name=$edbi])) {
+        expr jcs:output("Please configure ephemeral db for this function via:");
+        expr jcs:output("set system configuration-database ephemeral instance " _ $edbi);
+    } 
+}
+
+template is_bgp_graceful_shutdown_active() {
+
+    var $rpc-query = {
+        <get-configuration> {
+            <configuration> {
+                <policy-options> {
+                    <community> {
+                        <name> $edbi;
+                    }
+                }
+            }
+        }
+    }
+    var $result2 = jcs:execute($con, $rpc-query);
+
+    if ($result2//members) {
+        expr $result2//members;
+    } else {
+        expr 0;
+    }
+}
+
+template disable_bgp_graceful_shutdown() {
+
+    var $rpc-delete = {
+            <delete-config> {
+                <target> {
+                    <candidate>;
+                }
+            }
+    }
+    var $result = jcs:execute($con, $rpc-delete);
+
+    var $rpc-commit = {
+        <commit-configuration> {
+            <synchronize>;
+        }
+    }
+    var $result3 = jcs:execute($con, $rpc-commit);
+}
+
+template enable_bgp_graceful_shutdown() {
+
+    var $rpc-cfg = {
+        <load-configuration> {
+            <configuration> {
+                call walk_bgp_peers();
+            }
+        }
+    }
+    var $result2 = jcs:execute($con, $rpc-cfg);
+
+    var $rpc-commit = {
+        <commit-configuration> {
+            <synchronize>;
+        }
+    }
+    var $result3 = jcs:execute($con, $rpc-commit);
+}
+
+template walk_bgp_peers() {
+
+    var $query = {
+        <get-bgp-neighbor-information>;
+    }
+    var $result = jcs:execute($con, $query);
+
+    for-each($result/bgp-peer) {
+        <policy-options> {
+            <community> {
+                <name> "bgp_graceful_shutdown";
+                <members> $community;
+            }
+            <policy-statement> {
+                <name> "set-bgp-graceful-shutdown";
+                <then> {
+                    <community> {
+                        <add>;
+                        <community-name> "bgp_graceful_shutdown";
+                    }
+                }
+            }
+        }
+        if (peer-cfg-rti == "master") {
+            <protocols> { 
+                <bgp> {
+                    <group> {
+                        <name> peer-group;
+                        <export> "set-bgp-graceful-shutdown";
+                    }
+                }
+            }
+        } else {
+            <routing-instances> {
+                <instance> {
+                    <name> peer-cfg-rti;
+                    <protocols> { 
+                        <bgp> {
+                            <group> {
+                                <name> peer-group;
+                                <export> "set-bgp-graceful-shutdown";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

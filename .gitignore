@@ -1,0 +1,7 @@
+junos*qcow2
+upload.sh
+getcfg.sh
+*.full.txt
+*.old.txt
+license*txt
+id_rsa.pub

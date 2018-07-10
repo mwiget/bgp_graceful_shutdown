@@ -1,0 +1,49 @@
+system {
+    configuration-database {
+        ephemeral {
+            instance vfp0;
+        }
+    }
+    host-name vmx2;
+    root-authentication {
+        ssh-rsa "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDmIm1V4vFqhy6hN2+uVNH0UXzJHPqLLuZvUj7Mgj8vbla1ke9XQZ5BZlP49fJRYuB6aAx1VdePc6ya5ww6nSpFAcYrgTSl0azcFNIIMIYzZVsOFY5Hn1brGm6NdoPaUny9S7TcW/lDlJvThNryUOhA7ZUDjOSnkvjoPLISctOilgao2JRiElY80G/zzZmN9uUGXw6UvQuo9iOXftTXQdKlEeb9o39SAUHo9wqk6KA3ZiL1UNgBeoVxVlrFWop0wLNL91uNzDYhO4/zBXIl0WY8bUCOpyGNZYEd5F8kR1i6C7t5rLzCbKRwufxzQLX6pChY0m/9rJjxZIlVfI3VO8Mr mwiget@sr"; ## SECRET-DATA
+        ssh-rsa "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCuaAqcUzQpZJLlJA3eCqlR/a1w+o2XzgoO+/rrcWoA/y69fhOr6CyHTVTTgBy00A4TJoSgWcCcGS1wwNG4nfcbV5z6HtcKsNZIbzA0PyE6R1HJaga5eyXSvPlv6NoQ72hqOXzbGRZQbCRV5ZO/L+r70jfKwNBBYHWojzqFoYEm7P6/7tLcoOQJGSAeanF4Gkaj864fnXwjguI5vWyVY/MPUPtNV1g117IfgdnWRANHP7EaPMT0zMi0nu9E0omsKVFQyheho91tCeJkR2yXK7Hb0Ohb4MknghdF8QLFEHdPdLDQp82+VmP+vOrigY851tzQF4X26AEnpUjquVKQHGZn mwiget@mwiget-mba13"; ## SECRET-DATA
+    }
+    services {
+        ssh {
+            client-alive-interval 30;
+        }
+        netconf {
+            ssh;
+        }
+    }
+}
+interfaces {
+    ge-0/0/0 {
+        flexible-vlan-tagging;
+        native-vlan-id 0;
+        unit 0 {
+            vlan-id 0;
+            family inet {
+                address 10.1.1.12/24;
+            }
+        }
+    }
+}
+routing-options {
+    autonomous-system 65012;
+}
+protocols {
+    bgp {
+        group junos {
+            type external;
+            local-address 10.1.1.12;
+            family inet {
+                unicast;
+            }
+            peer-as 65011;
+            local-as 65012;
+            neighbor 10.1.1.11;
+        }
+    }
+}

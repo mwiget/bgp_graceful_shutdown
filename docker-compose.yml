@@ -1,0 +1,67 @@
+version: "2.1"
+
+services:
+
+  vmx1:
+    image: marcelwiget/vmx-docker-light:latest
+    container_name: vmx1
+    privileged: true
+    tty: true
+    stdin_open: true
+    ports:
+      - "22"
+      - "830"
+    environment:
+      - LICENSE=license-eval.txt
+      - IMAGE=junos-vmx-x86-64-17.3R1.10.qcow2
+      - PUBLICKEY=id_rsa.pub
+      - CONFIG=vmx1.conf.txt
+      - NOIP=1
+    volumes:
+      - $PWD:/u:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      net0-mgmt:
+      net1-peers:
+          ipv4_address: 10.1.1.11
+
+  vmx2:
+    image: marcelwiget/vmx-docker-light:latest
+    container_name: vmx2
+    privileged: true
+    tty: true
+    stdin_open: true
+    ports:
+      - "22"
+      - "830"
+    environment:
+      - LICENSE=license-eval.txt
+      - IMAGE=junos-vmx-x86-64-17.3R1.10.qcow2
+      - PUBLICKEY=id_rsa.pub
+      - CONFIG=vmx2.conf.txt
+      - NOIP=1
+    volumes:
+      - $PWD:/u:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      net0-mgmt:
+      net1-peers:
+          ipv4_address: 10.1.1.12
+
+  exabgp:
+    build: exabgp
+    privileged: true
+    tty: true
+    stdin_open: true
+    environment:
+      - GATEWAY=10.9.3.254
+    networks:
+      net1-peers:
+        ipv4_address: 10.1.1.100
+
+networks:
+  net0-mgmt:
+  net1-peers:
+      ipam:
+          config:
+              - subnet: 10.1.1.0/24
