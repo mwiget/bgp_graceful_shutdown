@@ -68,9 +68,9 @@ routing-instances {
         instance-type virtual-router;
         protocols {
             bgp {
-                peer-as 1234;
+                peer-as 65536;
                 group mygroup {
-                    neighbor 1.2.3.4;
+                    neighbor 198.51.100.100;
                 }
             }
         }
