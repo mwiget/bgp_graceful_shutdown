@@ -13,6 +13,7 @@ import "../import/junos.xsl";
 
 param $action = "status";
 param $community = "origin:65535:0";
+param $neighbor = "";
 
 var $self = "bgp_graceful_shutdown.slax";
 var $edbi = "bgp_graceful_shutdown";
@@ -27,6 +28,10 @@ var $arguments = {
     <argument> {
         <name> "community";
         <description> "community member (e.g. origin:65535:0)";
+    }
+    <argument> {
+        <name> "neighbor";
+        <description> "BGP neighbor address";
     }
 }
 
@@ -174,7 +179,13 @@ template enable_bgp_graceful_shutdown() {
 template walk_bgp_peers() {
 
     var $query = {
-        <get-bgp-neighbor-information>;
+        if ($neighbor) {
+            <get-bgp-neighbor-information> {
+                <neighbor-address> $neighbor;
+            }
+        } else {
+            <get-bgp-neighbor-information>;
+        }
     }
     var $result = jcs:execute($con, $query);
 
@@ -187,6 +198,9 @@ template walk_bgp_peers() {
             <policy-statement> {
                 <name> "set-bgp-graceful-shutdown";
                 <then> {
+                    <local-preference> {
+                        <local-preference> "0";
+                    }
                     <community> {
                         <add>;
                         <community-name> "bgp_graceful_shutdown";
@@ -199,6 +213,7 @@ template walk_bgp_peers() {
                 <bgp> {
                     <group> {
                         <name> peer-group;
+                        <import> "set-bgp-graceful-shutdown";
                         <export> "set-bgp-graceful-shutdown";
                     }
                 }
@@ -211,6 +226,7 @@ template walk_bgp_peers() {
                         <bgp> {
                             <group> {
                                 <name> peer-group;
+                                <import> "set-bgp-graceful-shutdown";
                                 <export> "set-bgp-graceful-shutdown";
                             }
                         }
